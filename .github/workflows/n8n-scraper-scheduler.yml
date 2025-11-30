@@ -1,0 +1,71 @@
+name: n8n Alibaba Scraper Scheduler
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC for JEANTRAIL001
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  trigger-scraper:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        account: [001, 002, 003, 004, 005, 006, 007, 008, 009, 010]
+    steps:
+      - name: Trigger n8n Workflow for Account ${{ matrix.account }}
+        run: |
+          curl -X POST \
+            '${{ secrets.N8N_WEBHOOK_URL }}/webhook/jeantrail-scraper-${{ matrix.account }}' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "account_id": "JEANTRAIL${{ matrix.account }}",
+              "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+              "execution_type": "scheduled"
+            }'
+
+      # Stagger the requests by 10 minutes to avoid rate limiting
+      - name: Wait 10 minutes before next account
+        if: ${{ matrix.account != '010' }}
+        run: sleep 600
+
+  monitor-executions:
+    needs: trigger-scraper
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Workflow Status
+        run: |
+          curl -X GET \
+            '${{ secrets.N8N_API_URL }}/executions' \
+            -H 'X-N8N-API-KEY: ${{ secrets.N8N_API_KEY }}' | jq '.' > workflow-status.json
+          cat workflow-status.json
+
+      - name: Upload Status Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: workflow-status-report
+          path: workflow-status.json
+          retention-days: 7
+
+  notify-completion:
+    needs: monitor-executions
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "✅ JeanTrail Scraper Daily Run Completed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🎉 JeanTrail Alibaba Scraper Daily Execution*\n*Status:* ${{ job.status }}\n*Timestamp:* $(date -u)"
+                  }
+                }
+              ]
+            }
