@@ -1,0 +1,72 @@
+{
+  "name": "jeantrail-browser",
+  "version": "2.0.0",
+  "description": "AI-powered, privacy-first browser with e-commerce marketplace and decentralized proxy network",
+  "main": "dist/main/index.js",
+  "preload": "dist/preload/index.js",
+  "homepage": "https://github.com/1youandme/jeantrail-browser",
+  "license": "MIT",
+  "author": "JeanTrail Team <jeantrai@gmail.com>",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1youandme/jeantrail-browser.git"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "vite build --watch --mode development src/main",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
+    "build": "npm run build:main && npm run build:renderer",
+    "build:main": "vite build src/main",
+    "build:renderer": "vite build --mode production src/renderer",
+    "start": "electron dist/main/index.js",
+    "prestart": "npm run build",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
+    "type-check": "tsc --noEmit",
+    "security-audit": "npm audit --audit-level=moderate"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.1.1",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^118.0.0",
+    "node-cache": "^5.1.2",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.2.9",
+    "@types/node": "^20.8.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "@vitejs/plugin-react": "^4.1.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "eslint": "^8.49.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "concurrently": "^8.2.1"
+  },
+  "build": {
+    "appId": "com.jeantrail.browser",
+    "productName": "JeanTrail Browser",
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    }
+  }
+}
