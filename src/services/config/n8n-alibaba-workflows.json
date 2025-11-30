@@ -1,0 +1,152 @@
+{
+  "name": "Alibaba E-Commerce Advanced Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"repeatType": "minutes", "repeatValue": 15}]
+        }
+      },
+      "id": "n8n-1",
+      "name": "Cron - Scheduled Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "trigger-alibaba-sync"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:3000/api/alibaba/account/select",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Bearer {{ $env.ALIBABA_API_KEY }}"},
+            {"name": "X-Workflow-ID", "value": "alibaba-advanced"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "n8n-2",
+      "name": "Account Selector",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const categories = JSON.parse('{categories}'); return { categories: categories.map(cat => ({ ...cat, priority: cat.sales > 10000 ? 'HIGH' : 'NORMAL' })) }"
+      },
+      "id": "n8n-3",
+      "name": "Category Assigner",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:3000/api/alibaba/products/fetch",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {"parameters": []},
+        "options": {"timeout": 30000, "redirect": {"redirect": "follow"}}
+      },
+      "id": "n8n-4",
+      "name": "Product Processor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const products = items.map(item => { const basePrice = item.json.price || 0; const demand = item.json.demand || 1; const stock = item.json.stock || 1; const multiplier = Math.min(1.5, 1 + (demand / (stock + 1)) * 0.2); return { ...item.json, dynamicPrice: (basePrice * multiplier).toFixed(2) }; }); return products;"
+      },
+      "id": "n8n-5",
+      "name": "Pricing Engine",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:3000/api/alibaba/orders/submit",
+        "authentication": "genericCredentialType",
+        "sendBody": true,
+        "bodyParameters": {"parameters": []},
+        "options": {"batchSize": 100, "retryCount": 3, "retryDelay": 5000}
+      },
+      "id": "n8n-6",
+      "name": "Order Submitter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://hooks.slack.com/services/{{ $env.SLACK_WEBHOOK_URL }}",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParametersUi": "json",
+        "bodyParameters": {
+          "json": {
+            "text": "Alibaba Order Summary",
+            "blocks": [
+              {"type": "header", "text": {"type": "plain_text", "text": "Daily Alibaba Report"}},
+              {"type": "section", "fields": [
+                {"type": "mrkdwn", "text": "*Total Orders:*\n100"},
+                {"type": "mrkdwn", "text": "*Successful:*\n95"},
+                {"type": "mrkdwn", "text": "*Failed:*\n5"},
+                {"type": "mrkdwn", "text": "*Revenue:*\n$2500"}
+              ]}
+            ]
+          }
+        }
+      },
+      "id": "n8n-7",
+      "name": "Notification Handler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1750, 300]
+    },
+    {
+      "parameters": {
+        "operation": "log",
+        "jsonData": true,
+        "message": "Workflow execution completed"
+      },
+      "id": "n8n-8",
+      "name": "Error Handler & Logger",
+      "type": "n8n-nodes-base.logWriter",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Cron - Scheduled Trigger": {"main": [[{"node": "Account Selector", "type": "main", "index": 0}]]},
+    "Account Selector": {"main": [[{"node": "Category Assigner", "type": "main", "index": 0}]]},
+    "Category Assigner": {"main": [[{"node": "Product Processor", "type": "main", "index": 0}]]},
+    "Product Processor": {"main": [[{"node": "Pricing Engine", "type": "main", "index": 0}]]},
+    "Pricing Engine": {"main": [[{"node": "Order Submitter", "type": "main", "index": 0}]]},
+    "Order Submitter": {"main": [[{"node": "Notification Handler", "type": "main", "index": 0}]]},
+    "Notification Handler": {"main": [[{"node": "Error Handler & Logger", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "errorHandler": {
+      "enabled": true,
+      "retryAttempts": 3,
+      "retryDelay": 5000,
+      "fallbackNode": "Error Handler & Logger"
+    },
+    "logging": {"level": "info", "enabled": true},
+    "concurrency": {"enabled": true, "maxConcurrent": 5}
+  },
+  "version": 1,
+  "createdAt": "2024-01-15T00:00:00Z",
+  "lastModified": "2024-01-15T00:00:00Z"
+}
