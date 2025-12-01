@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.zip
+*.exe
+*.blockmap
+*.log
+release_*.json
+issue_*.json
+.env
+.env.*
+test-report.json
